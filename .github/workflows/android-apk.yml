@@ -1,0 +1,107 @@
+name: Android APK
+run-name: ${{ inputs.build_id || 'APK manual' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_id:
+        description: "ID enviado por el botón de MARCOMUSIC"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Verificar Capacitor y archivos necesarios
+        run: |
+          for f in capacitor.config.ts vite.mobile.config.ts mobile/index.html native/MainActivity.java assets/icon-only.png package.json; do
+            test -f "$f" || { echo "::error::Falta el archivo $f"; exit 1; }
+          done
+
+      - name: Instalar Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Instalar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Instalar Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Instalar dependencias
+        env:
+          BUN_CONFIG_REGISTRY: https://registry.npmjs.org
+        run: rm -f bun.lock && bun install
+
+      - name: Compilar la aplicación web
+        run: bunx vite build -c vite.mobile.config.ts && test -f dist-mobile/index.html
+
+      - name: Generar o actualizar proyecto Android
+        run: |
+          if [ ! -d android ]; then npx cap add android; fi
+          cp native/MainActivity.java android/app/src/main/java/com/marcomusic/app/MainActivity.java
+          python3 - <<'PY'
+          p = "android/app/src/main/AndroidManifest.xml"
+          s = open(p).read()
+          perms = [
+            '<uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />',
+            '<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />',
+            '<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />',
+            '<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />',
+            '<uses-permission android:name="android.permission.WAKE_LOCK" />',
+            '<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />',
+          ]
+          for x in perms:
+            if x not in s:
+              s = s.replace("<application", x + "\n    <application", 1)
+          if "requestLegacyExternalStorage" not in s:
+            s = s.replace("<application", '<application android:requestLegacyExternalStorage="true"', 1)
+          open(p, "w").write(s)
+          PY
+
+      - name: Generar icono y pantalla de inicio
+        run: npx @capacitor/assets generate --android --iconBackgroundColor '#05060f' --iconBackgroundColorDark '#05060f' --splashBackgroundColor '#05060f' --splashBackgroundColorDark '#05060f'
+
+      - name: Sincronizar Capacitor con Android
+        run: npx cap sync android
+
+      - name: Asignar número de versión
+        run: |
+          sed -i "s/versionCode [0-9]*/versionCode ${{ github.run_number }}/" android/app/build.gradle
+          sed -i "s/versionName \"[^\"]*\"/versionName \"1.0.${{ github.run_number }}\"/" android/app/build.gradle
+
+      - name: Compilar APK con Gradle
+        working-directory: android
+        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+
+      - name: Verificar que el APK exista
+        run: |
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK" || { echo "::error::No se generó el APK"; exit 1; }
+          cp "$APK" "MARCOMUSIC-1.0.${{ github.run_number }}-debug.apk"
+
+      - name: Guardar APK como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: MARCOMUSIC-1.0.${{ github.run_number }}
+          path: MARCOMUSIC-*.apk
+
+      - name: Publicar APK para descarga
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-${{ github.run_number }}
+          name: MARCOMUSIC 1.0.${{ github.run_number }} (debug)
+          prerelease: true
+          files: MARCOMUSIC-*.apk
