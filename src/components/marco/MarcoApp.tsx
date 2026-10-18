@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import * as M from "@/lib/music/store";
 import { importFiles, isNative, scanDevice } from "@/lib/music/library";
+import { Capacitor } from "@capacitor/core";
 import type { Track } from "@/lib/music/types";
 import icon from "@/assets/icon.png";
 
@@ -191,7 +192,8 @@ function ImportButtons() {
         <Button variant="secondary" onClick={pick} disabled={!!busy}><FilePlus2 /> Agregar archivos</Button>
       </div>
       {busy && <p className="text-center text-sm text-muted-foreground">{busy}</p>}
-      {!isNative() && <p className="text-center text-xs text-muted-foreground">En el navegador usá «Agregar archivos». El escaneo automático funciona en la app Android.</p>}
+      {!isNative() && <p className="text-center text-xs text-muted-foreground">En el navegador usá «Agregar archivos». El escaneo automático funciona en la app instalada.</p>}
+      {isNative() && Capacitor.getPlatform() === "ios" && <p className="text-center text-xs text-muted-foreground">En iPhone: copiá tu música en la app Archivos → En mi iPhone → MARCOMUSIC, y después tocá escanear. También podés usar «Agregar archivos».</p>}
     </div>
   );
 }

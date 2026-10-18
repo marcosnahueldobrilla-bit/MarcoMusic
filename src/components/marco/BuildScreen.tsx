@@ -2,12 +2,36 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, Circle, Download, ExternalLink, Loader2, RefreshCw, XCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { checkBuildConfig, findBuild, getBuild, latestBuild, startBuild, type BuildInfo, type ConfigCheck } from "@/lib/build/build.functions";
+import { checkBuildConfig, findBuild, getBuild, latestBuild, startBuild, type BuildInfo, type ConfigCheck, type Platform } from "@/lib/build/build.functions";
 
 type Phase = "pending" | "starting" | "building" | "done" | "error";
-const KEY = "marcomusic:build";
+
+const UI: Record<Platform, { title: string; button: string; icon: string; file: string; dl: string; note: string }> = {
+  android: {
+    title: "Android", button: "GENERAR Y DESCARGAR APK", icon: "📦", file: "APK", dl: "apk",
+    note: "Se genera un APK de depuración para instalar manualmente. Al abrirlo, Android pedirá permitir «instalar apps desconocidas».",
+  },
+  ios: {
+    title: "iPhone (iOS)", button: "GENERAR Y DESCARGAR IPA", icon: "🍎", file: "IPA", dl: "ipa",
+    note: "El IPA se genera sin firma de Apple. Para instalarlo en tu iPhone, abrilo con Sideloadly o AltStore en tu computadora e iniciá sesión con tu Apple ID gratuito: ellos lo firman y lo instalan.",
+  },
+};
 
 export default function BuildScreen() {
+  return (
+    <div className="flex flex-col gap-8">
+      <div>
+        <h1 className="text-2xl font-bold">Generar instaladores</h1>
+        <p className="text-sm text-muted-foreground">Compila MARCOMUSIC en GitHub Actions y descargá el instalable real.</p>
+      </div>
+      <PlatformBuild platform="android" />
+      <PlatformBuild platform="ios" />
+    </div>
+  );
+}
+
+function PlatformBuild({ platform }: { platform: Platform }) {
+  const u = UI[platform];
   const [config, setConfig] = useState<ConfigCheck | null>(null);
   const [build, setBuild] = useState<BuildInfo | null>(null);
   const [phase, setPhase] = useState<Phase>("pending");
@@ -16,42 +40,41 @@ export default function BuildScreen() {
 
   const apply = useCallback((b: BuildInfo) => {
     setBuild(b);
-    localStorage.setItem(KEY, JSON.stringify({ runId: b.runId }));
     if (b.status !== "completed") setPhase("building");
     else if (b.conclusion === "success" && b.apkReady) setPhase("done");
-    else if (b.conclusion === "success") { setPhase("error"); setMsg("La compilación terminó pero no se encontró el APK publicado."); }
+    else if (b.conclusion === "success") { setPhase("error"); setMsg(`La compilación terminó pero no se encontró el ${u.file} publicado.`); }
     else { setPhase("error"); setMsg(failMsg(b)); }
-  }, []);
+  }, [u.file]);
 
   const poll = useCallback(async (runId: number) => {
     try {
-      const b = await getBuild({ data: { runId } });
+      const b = await getBuild({ data: { platform, runId } });
       apply(b);
       if (b.status !== "completed") timer.current = setTimeout(() => poll(runId), 6000);
     } catch (e) { setPhase("error"); setMsg(errText(e)); }
-  }, [apply]);
+  }, [apply, platform]);
 
   useEffect(() => {
     (async () => {
       try {
-        const c = await checkBuildConfig();
+        const c = await checkBuildConfig({ data: { platform } });
         setConfig(c);
         if (!c.ok) return;
-        const last = await latestBuild();
+        const last = await latestBuild({ data: { platform } });
         if (last) { apply(last); if (last.status !== "completed") poll(last.runId); }
       } catch (e) { setMsg(errText(e)); }
     })();
     return () => clearTimeout(timer.current);
-  }, [apply, poll]);
+  }, [apply, poll, platform]);
 
   const start = async () => {
     clearTimeout(timer.current);
     setPhase("starting"); setMsg(""); setBuild(null);
     try {
-      const { buildId } = await startBuild();
+      const { buildId } = await startBuild({ data: { platform } });
       for (let i = 0; i < 20; i++) {
         await new Promise((r) => setTimeout(r, 3000));
-        const b = await findBuild({ data: { buildId } });
+        const b = await findBuild({ data: { platform, buildId } });
         if (b) { apply(b); if (b.status !== "completed") poll(b.runId); return; }
       }
       setPhase("error"); setMsg("GitHub aceptó la orden pero la compilación no apareció. Revisá que Actions esté habilitado en el repositorio.");
@@ -62,12 +85,8 @@ export default function BuildScreen() {
   const label = { pending: "Pendiente", starting: "Iniciando…", building: build?.status === "queued" ? "En cola" : "Compilando", done: "Completado", error: "Error" }[phase];
 
   return (
-    <div className="flex flex-col gap-5">
-      <div>
-        <h1 className="text-2xl font-bold">Generar APK</h1>
-        <p className="text-sm text-muted-foreground">Compila MARCOMUSIC para Android en GitHub Actions y descargá el instalable.</p>
-      </div>
-
+    <section className="flex flex-col gap-4">
+      <h2 className="text-lg font-semibold">{u.title}</h2>
       {config && !config.ok && (
         <div className="rounded-2xl border border-destructive/60 bg-card p-4">
           <div className="mb-2 flex items-center gap-2 font-semibold"><AlertTriangle className="size-5 text-destructive" /> Falta configuración</div>
@@ -83,7 +102,7 @@ export default function BuildScreen() {
       )}
 
       <Button variant="mega" size="xl" disabled={!config?.ok || busy} onClick={start}>
-        {busy ? <Loader2 className="size-5 animate-spin" /> : "📦"} GENERAR Y DESCARGAR APK
+        {busy ? <Loader2 className="size-5 animate-spin" /> : u.icon} {u.button}
       </Button>
 
       <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4">
@@ -107,7 +126,7 @@ export default function BuildScreen() {
 
         {phase === "done" && build?.apkReady && (
           <Button asChild variant="neon" size="lg">
-            <a href={`/api/apk/${build.runNumber}`} download={build.apkName}><Download /> DESCARGAR APK {build.apkSize ? `(${(build.apkSize / 1048576).toFixed(1)} MB)` : ""}</a>
+            <a href={`/api/${u.dl}/${build.runNumber}`} download={build.apkName}><Download /> DESCARGAR {u.file} {build.apkSize ? `(${(build.apkSize / 1048576).toFixed(1)} MB)` : ""}</a>
           </Button>
         )}
         {phase === "error" && config?.ok && <Button variant="secondary" onClick={start}><RefreshCw /> Volver a intentar</Button>}
@@ -115,9 +134,9 @@ export default function BuildScreen() {
       </div>
 
       {build && build.steps.length > 0 && (
-        <div className="rounded-2xl border bg-card p-4">
-          <h2 className="mb-3 text-sm font-semibold">Registro del proceso</h2>
-          <ol className="flex flex-col gap-1.5 text-sm">
+        <details className="rounded-2xl border bg-card p-4">
+          <summary className="cursor-pointer text-sm font-semibold">Registro del proceso</summary>
+          <ol className="mt-3 flex flex-col gap-1.5 text-sm">
             {build.steps.map((s, i) => (
               <li key={i} className="flex items-center gap-2">
                 {s.status !== "completed" ? (s.status === "in_progress" ? <Loader2 className="size-4 animate-spin text-primary" /> : <Circle className="size-4 text-muted-foreground" />)
@@ -127,10 +146,10 @@ export default function BuildScreen() {
               </li>
             ))}
           </ol>
-        </div>
+        </details>
       )}
-      <p className="text-xs text-muted-foreground">Se genera un APK de depuración para instalar manualmente. Al abrirlo, Android pedirá permitir «instalar apps desconocidas».</p>
-    </div>
+      <p className="text-xs text-muted-foreground">{u.note}</p>
+    </section>
   );
 }
 
@@ -141,5 +160,5 @@ function failMsg(b: BuildInfo) {
 }
 function errText(e: unknown) {
   const m = e instanceof Error ? e.message : String(e);
-  return m.includes("CONFIG_MISSING") ? "Falta configurar el token y el repositorio de GitHub." : m;
+  return m.includes("CONFIG_MISSING") ? "Falta la conexión con GitHub o el repositorio." : m;
 }

@@ -21,12 +21,17 @@ function guessFromName(file: string) {
 }
 
 export async function scanDevice(onProgress?: (n: number, dir: string) => void): Promise<Track[]> {
-  if (!isNative()) throw new Error("El escaneo automático solo funciona en la app Android. En el navegador usá «Agregar archivos».");
+  if (!isNative()) throw new Error("El escaneo automático solo funciona en la app instalada. En el navegador usá «Agregar archivos».");
   const { Filesystem, Directory } = await import("@capacitor/filesystem");
-  try {
-    await Filesystem.requestPermissions();
-  } catch {
-    /* Android 13+ uses READ_MEDIA_AUDIO, requested at app start */
+  // iOS has no shared music folder: scan the app's own folder, visible in the Files app as "MARCOMUSIC".
+  const ios = Capacitor.getPlatform() === "ios";
+  const directory = ios ? Directory.Documents : Directory.ExternalStorage;
+  if (!ios) {
+    try {
+      await Filesystem.requestPermissions();
+    } catch {
+      /* Android 13+ uses READ_MEDIA_AUDIO, requested at app start */
+    }
   }
   const found: Track[] = [];
   const seen = new Set<string>();
@@ -34,14 +39,14 @@ export async function scanDevice(onProgress?: (n: number, dir: string) => void):
     if (depth > 7) return;
     let res;
     try {
-      res = await Filesystem.readdir({ path, directory: Directory.ExternalStorage });
+      res = await Filesystem.readdir({ path, directory });
     } catch {
       return;
     }
-    onProgress?.(found.length, path);
+    onProgress?.(found.length, path || "MARCOMUSIC");
     for (const f of res.files) {
       if (f.name.startsWith(".")) continue;
-      const p = `${path}/${f.name}`;
+      const p = path ? `${path}/${f.name}` : f.name;
       if (f.type === "directory") await walk(p, depth + 1);
       else if (AUDIO_EXT.test(f.name) && !seen.has(f.uri)) {
         seen.add(f.uri);
@@ -59,7 +64,8 @@ export async function scanDevice(onProgress?: (n: number, dir: string) => void):
       }
     }
   };
-  for (const root of SCAN_ROOTS) await walk(root, 0);
+  if (ios) await walk("", 0);
+  else for (const root of SCAN_ROOTS) await walk(root, 0);
   return found;
 }
 
