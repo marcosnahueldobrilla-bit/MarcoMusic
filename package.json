@@ -20,7 +20,6 @@
     "@capacitor/android": "^7",
     "@capacitor/core": "^7",
     "@capacitor/filesystem": "^7",
-    "@capacitor/ios": "^7",
     "@capacitor/splash-screen": "^7",
     "@hookform/resolvers": "^5.2.2",
     "@jofr/capacitor-media-session": "^4.0.0",

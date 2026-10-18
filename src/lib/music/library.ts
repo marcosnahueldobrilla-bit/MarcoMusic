@@ -23,15 +23,11 @@ function guessFromName(file: string) {
 export async function scanDevice(onProgress?: (n: number, dir: string) => void): Promise<Track[]> {
   if (!isNative()) throw new Error("El escaneo automático solo funciona en la app instalada. En el navegador usá «Agregar archivos».");
   const { Filesystem, Directory } = await import("@capacitor/filesystem");
-  // iOS has no shared music folder: scan the app's own folder, visible in the Files app as "MARCOMUSIC".
-  const ios = Capacitor.getPlatform() === "ios";
-  const directory = ios ? Directory.Documents : Directory.ExternalStorage;
-  if (!ios) {
-    try {
-      await Filesystem.requestPermissions();
-    } catch {
-      /* Android 13+ uses READ_MEDIA_AUDIO, requested at app start */
-    }
+  const directory = Directory.ExternalStorage;
+  try {
+    await Filesystem.requestPermissions();
+  } catch {
+    /* Android 13+ uses READ_MEDIA_AUDIO, requested at app start */
   }
   const found: Track[] = [];
   const seen = new Set<string>();
@@ -64,8 +60,7 @@ export async function scanDevice(onProgress?: (n: number, dir: string) => void):
       }
     }
   };
-  if (ios) await walk("", 0);
-  else for (const root of SCAN_ROOTS) await walk(root, 0);
+  for (const root of SCAN_ROOTS) await walk(root, 0);
   return found;
 }
 

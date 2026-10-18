@@ -11,21 +11,16 @@ const UI: Record<Platform, { title: string; button: string; icon: string; file: 
     title: "Android", button: "GENERAR Y DESCARGAR APK", icon: "📦", file: "APK", dl: "apk",
     note: "Se genera un APK de depuración para instalar manualmente. Al abrirlo, Android pedirá permitir «instalar apps desconocidas».",
   },
-  ios: {
-    title: "iPhone (iOS)", button: "GENERAR Y DESCARGAR IPA", icon: "🍎", file: "IPA", dl: "ipa",
-    note: "El IPA se genera sin firma de Apple. Para instalarlo en tu iPhone, abrilo con Sideloadly o AltStore en tu computadora e iniciá sesión con tu Apple ID gratuito: ellos lo firman y lo instalan.",
-  },
 };
 
 export default function BuildScreen() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-2xl font-bold">Generar instaladores</h1>
-        <p className="text-sm text-muted-foreground">Compila MARCOMUSIC en GitHub Actions y descargá el instalable real.</p>
+        <h1 className="text-2xl font-bold">Generar APK</h1>
+        <p className="text-sm text-muted-foreground">Compila MARCOMUSIC para Android en GitHub Actions y descargá el instalable.</p>
       </div>
       <PlatformBuild platform="android" />
-      <PlatformBuild platform="ios" />
     </div>
   );
 }

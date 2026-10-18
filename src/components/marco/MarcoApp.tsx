@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Home, Library, ListMusic, Heart, Settings, Package, Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Repeat1,
-  ChevronDown, Search, FolderSearch, FilePlus2, MoreVertical, Plus, Trash2, ListPlus, Music2, ArrowLeft, ListOrdered, X,
+  ChevronDown, Search, Youtube, FolderSearch, FilePlus2, MoreVertical, Plus, Trash2, ListPlus, Music2, ArrowLeft, ListOrdered, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -13,11 +13,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import * as M from "@/lib/music/store";
 import { importFiles, isNative, scanDevice } from "@/lib/music/library";
-import { Capacitor } from "@capacitor/core";
 import type { Track } from "@/lib/music/types";
 import icon from "@/assets/icon.png";
+import YouTubeScreen from "./YouTubeScreen";
 
-type Screen = "home" | "library" | "playlists" | "favorites" | "settings" | "build" | `pl:${string}`;
+type Screen = "home" | "library" | "playlists" | "favorites" | "settings" | "build" | "youtube" | `pl:${string}`;
 
 export default function MarcoApp({ buildPanel }: { buildPanel: ReactNode }) {
   const [splash, setSplash] = useState(true);
@@ -45,6 +45,7 @@ export default function MarcoApp({ buildPanel }: { buildPanel: ReactNode }) {
   const tabs: { id: Screen; label: string; Icon: typeof Home }[] = [
     { id: "home", label: "Inicio", Icon: Home },
     { id: "library", label: "Biblioteca", Icon: Library },
+    { id: "youtube", label: "YouTube", Icon: Youtube },
     { id: "playlists", label: "Playlists", Icon: ListMusic },
     { id: "favorites", label: "Favoritos", Icon: Heart },
   ];
@@ -68,6 +69,7 @@ export default function MarcoApp({ buildPanel }: { buildPanel: ReactNode }) {
         {screen === "favorites" && <FavoritesScreen />}
         {screen === "settings" && <SettingsScreen go={setScreen} />}
         {screen === "build" && buildPanel}
+        {screen === "youtube" && <YouTubeScreen toLibrary={() => setScreen("library")} />}
       </main>
 
       <MiniPlayer onOpen={() => setFull(true)} />
@@ -193,7 +195,6 @@ function ImportButtons() {
       </div>
       {busy && <p className="text-center text-sm text-muted-foreground">{busy}</p>}
       {!isNative() && <p className="text-center text-xs text-muted-foreground">En el navegador usá «Agregar archivos». El escaneo automático funciona en la app instalada.</p>}
-      {isNative() && Capacitor.getPlatform() === "ios" && <p className="text-center text-xs text-muted-foreground">En iPhone: copiá tu música en la app Archivos → En mi iPhone → MARCOMUSIC, y después tocá escanear. También podés usar «Agregar archivos».</p>}
     </div>
   );
 }

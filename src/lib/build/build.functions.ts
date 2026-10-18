@@ -1,10 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-export type Platform = "android" | "ios";
+export type Platform = "android";
 export const PLATFORMS: Record<Platform, { workflow: string; tag: string; ext: string; files: string[] }> = {
   android: { workflow: "android-apk.yml", tag: "apk", ext: ".apk", files: ["capacitor.config.ts"] },
-  ios: { workflow: "ios-ipa.yml", tag: "ipa", ext: ".ipa", files: ["capacitor.config.ts"] },
 };
 
 export type BuildStep = { name: string; status: string; conclusion: string | null };
@@ -32,7 +31,7 @@ export type ConfigCheck = {
   checks: { label: string; ok: boolean; detail?: string | undefined }[];
 };
 
-const platformSchema = z.enum(["android", "ios"]);
+const platformSchema = z.enum(["android"]);
 
 export const checkBuildConfig = createServerFn({ method: "GET" })
   .inputValidator((d: { platform: Platform }) => z.object({ platform: platformSchema }).parse(d))
@@ -47,7 +46,7 @@ export const checkBuildConfig = createServerFn({ method: "GET" })
     if (token && repo) {
       try {
         await ghJson(`/actions/workflows/${P.workflow}`);
-        checks.push({ label: `Workflow de compilación ${data.platform === "ios" ? "iOS" : "Android"} en el repositorio`, ok: true });
+        checks.push({ label: `Workflow de compilación Android en el repositorio`, ok: true });
         const cap = await ghJson<unknown>(`/contents/capacitor.config.ts`).then(() => true, () => false);
         checks.push({ label: "Capacitor configurado en el repositorio", ok: cap });
       } catch (e) {

@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiApkRunNumberRouteImport } from './routes/api/apk.$runNumber'
-import { Route as ApiIpaRunNumberRouteImport } from './routes/api/ipa.$runNumber'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -23,40 +22,31 @@ const ApiApkRunNumberRoute = ApiApkRunNumberRouteImport.update({
   path: '/api/apk/$runNumber',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiIpaRunNumberRoute = ApiIpaRunNumberRouteImport.update({
-  id: '/api/ipa/$runNumber',
-  path: '/api/ipa/$runNumber',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/apk/$runNumber': typeof ApiApkRunNumberRoute
-  '/api/ipa/$runNumber': typeof ApiIpaRunNumberRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/apk/$runNumber': typeof ApiApkRunNumberRoute
-  '/api/ipa/$runNumber': typeof ApiIpaRunNumberRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/apk/$runNumber': typeof ApiApkRunNumberRoute
-  '/api/ipa/$runNumber': typeof ApiIpaRunNumberRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/apk/$runNumber' | '/api/ipa/$runNumber'
+  fullPaths: '/' | '/api/apk/$runNumber'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/apk/$runNumber' | '/api/ipa/$runNumber'
-  id: '__root__' | '/' | '/api/apk/$runNumber' | '/api/ipa/$runNumber'
+  to: '/' | '/api/apk/$runNumber'
+  id: '__root__' | '/' | '/api/apk/$runNumber'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiApkRunNumberRoute: typeof ApiApkRunNumberRoute
-  ApiIpaRunNumberRoute: typeof ApiIpaRunNumberRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -75,20 +65,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiApkRunNumberRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/ipa/$runNumber': {
-      id: '/api/ipa/$runNumber'
-      path: '/api/ipa/$runNumber'
-      fullPath: '/api/ipa/$runNumber'
-      preLoaderRoute: typeof ApiIpaRunNumberRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiApkRunNumberRoute: ApiApkRunNumberRoute,
-  ApiIpaRunNumberRoute: ApiIpaRunNumberRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
